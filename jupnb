@@ -1,43 +1,22 @@
 
-#!/usr/bin/env python3
-"""
-NDM-1 Mutation Hotspot Predictor v2.0
-=====================================
 
-A competition-grade computational biology pipeline for predicting antibiotic
-resistance mutation hotspots in NDM-1 using Protein Language Models and
-Graph Neural Networks.
 
-Features:
-- ESM-2 embeddings (650M parameters)
-- ESMFold structure prediction
-- Ensemble GNN (5 models)
-- Multi-modal scoring (evolutionary + structural)
-- Statistical validation
-- Publication-quality visualizations
 
-Usage:
-    python ndm_mutation_predictor_v2.py
-    python ndm_mutation_predictor_v2.py --output-dir results/ --n-ensemble 3
-
-Author: Amir 
-Version: 2.0.0
-"""
 from __future__ import annotations
 
-# KAGGLE/COLAB: ENVIRONMENT DETECTION & FIXES
+
 import subprocess
 import sys
 import os
 import warnings
 
-# Suppress warnings before any imports
+
 warnings.filterwarnings('ignore', category=UserWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress TensorFlow warnings
 os.environ['GRPC_VERBOSITY'] = 'ERROR'  # Suppress gRPC warnings
 
-# Detect if running in notebook (Jupyter/Kaggle/Colab)
+
 def is_notebook():
     try:
         from IPython import get_ipython
@@ -49,7 +28,7 @@ def is_notebook():
 
 RUNNING_IN_NOTEBOOK = is_notebook()
 
-# Fix protobuf issues on Kaggle/Colab
+
 os.environ['PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION'] = 'python'
 
 def install_if_missing(package, import_name=None):
@@ -112,7 +91,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# Configure logging to stdout (so it appears normal in notebooks, not red)
+
 logging.basicConfig(
     level=logging.INFO, 
     format='[%(levelname)s] %(message)s',
@@ -120,7 +99,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("ndm_predictor")
 
-# OPTIONAL IMPORTS
+# Misc Imports
 @contextmanager
 def suppress_stderr():
     """Temporarily suppress stderr output."""
@@ -158,111 +137,9 @@ try:
 except ImportError:
     UMAP_AVAILABLE = False
 
-# CITATIONS & REFERENCES (ISEF REQUIREMENT)
-# All data sources and methods must be properly cited for ISEF and publication
-CITATIONS = {
-    # Machine Learning Methods
-    "ESM-2": {
-        "title": "Evolutionary-scale prediction of atomic-level protein structure with a language model",
-        "authors": "Lin Z, Akin H, Rao R, et al.",
-        "journal": "Science",
-        "year": 2023,
-        "volume": "379",
-        "pages": "1123-1130",
-        "doi": "10.1126/science.ade2574",
-        "pmid": "36927031",
-    },
-    "ESMFold": {
-        "title": "Evolutionary-scale prediction of atomic-level protein structure with a language model",
-        "authors": "Lin Z, Akin H, Rao R, et al.",
-        "journal": "Science",
-        "year": 2023,
-        "doi": "10.1126/science.ade2574",
-    },
-    # NDM-1 Discovery and Epidemiology
-    "NDM-1_discovery": {
-        "title": "Emerging NDM variants and their molecular epidemiology: a comprehensive review",
-        "authors": "Shen Z, Hu Y, Sun Q, et al.",
-        "journal": "Emerg Microbes Infect",
-        "year": 2022,
-        "volume": "11",
-        "pages": "2505-2520",
-        "doi": "10.1080/22221751.2022.2128434",
-        "pmid": "36148621",
-    },
-    # NDM Variant Characterization
-    "NDM_variants_review": {
-        "title": "The molecular epidemiology of NDM-type beta-lactamases: an update",
-        "authors": "Philippon A, Bou G, Joris B, Labia R",
-        "journal": "Clin Microbiol Infect",
-        "year": 2022,
-        "volume": "28",
-        "pages": "792-799",
-        "doi": "10.1016/j.cmi.2022.01.005",
-        "pmid": "35051644",
-    },
-    # NDM MIC Data
-    "NDM_MIC_data": {
-        "title": "Insights into the Dissemination of NDM-5 Gene and Rapid Accumulation of Resistance Mutations",
-        "authors": "Boyd SE, Livermore DM, Hooper DC, Hope WW",
-        "journal": "mBio",
-        "year": 2020,
-        "volume": "11",
-        "pages": "e00378-20",
-        "doi": "10.1128/mBio.00378-20",
-        "pmid": "32047100",
-    },
-    # PDB Structure
-    "PDB_3SPU": {
-        "title": "Structural and mechanistic insights into NDM-type metallo-beta-lactamases",
-        "authors": "Li X, Zhao J, Zhang B, et al.",
-        "journal": "ACS Infect Dis",
-        "year": 2023,
-        "volume": "9",
-        "pages": "207-222",
-        "doi": "10.1021/acsinfecdis.2c00522",
-        "pmid": "36652611",
-        "note": "Comprehensive NDM structural analysis including PDB 3SPU",
-    },
-    # Clinical Importance Sources
-    "CDC_AR_Report_2022": {
-        "title": "COVID-19: U.S. Impact on Antimicrobial Resistance, Special Report 2022",
-        "authors": "Centers for Disease Control and Prevention",
-        "year": 2022,
-        "url": "https://www.cdc.gov/drugresistance/pdf/covid19-impact-report-508.pdf",
-        "note": "CRE infections include NDM-producing organisms",
-    },
-    "WHO_BPPL_2024": {
-        "title": "WHO Bacterial Priority Pathogens List, 2024",
-        "authors": "World Health Organization",
-        "year": 2024,
-        "url": "https://www.who.int/publications/i/item/9789240093461",
-        "note": "Carbapenem-resistant Enterobacterales rated as Critical priority",
-    },
-    # Database Sources
-    "CARD_database": {
-        "title": "CARD 2023: expanded curation, support for machine learning, and resistome prediction at the Comprehensive Antibiotic Resistance Database",
-        "authors": "Alcock BP, Huynh W, Chalber R, et al.",
-        "journal": "Nucleic Acids Res",
-        "year": 2023,
-        "volume": "51",
-        "pages": "D690-D699",
-        "doi": "10.1093/nar/gkac920",
-        "pmid": "36263822",
-    },
-}
 
-def format_citation(key: str) -> str:
-    """Format a citation in standard academic format."""
-    if key not in CITATIONS:
-        return f"[Citation not found: {key}]"
-    c = CITATIONS[key]
-    if "journal" in c:
-        return f"{c['authors']} ({c['year']}). {c['title']}. {c['journal']} {c.get('volume', '')}: {c.get('pages', '')}. DOI: {c.get('doi', 'N/A')}"
-    else:
-        return f"{c['authors']} ({c['year']}). {c['title']}. {c.get('url', '')}"
 
-# VERSION TRACKING (ISEF Reproducibility Requirement)
+
 def get_version_info() -> Dict[str, str]:
     """
     Capture all software versions for reproducibility.
@@ -390,15 +267,10 @@ class Config:
 
 
 # NDM-1 Sequence Data
-# IMPORTANT: Using FULL PRECURSOR sequence (includes signal peptide)
-# Literature mutation numbering (M154L, V88L, etc.) uses PRECURSOR positions
-# Signal peptide: residues 1-28 (cleaved in mature protein)
-# Verified: H120, H122, D124 = zinc-binding HAHQD motif at positions 120-124
-# Reference: UniProt C7C422 (full sequence)
+
 BASELINE_NAME = "NDM-1"
 
-# FULL NDM-1 precursor sequence (270 amino acids)
-# Mutation positions in code match literature directly (1-indexed in papers)
+
 NDM_1_SEQ = (
     "MELPNIMHPVAKLSTALAAALMLSGCMPGEIRPTIGQQMETGDQRFGDLVFRQLAPNVWQHTSYLDMPGFGAVASNGLIVRDGGRVLVVDTAWTDDQTAQILNWIKQEINLPVALAVVTHAHQDKMGGMDALHAAGIATYANALSNQLAPQEGMVAAQHSLTFAANGWVEPATAPNFGPLKVFYPGPGHTSDNITVGIDGTDIAFGGCLIKDSKAKSLGNLGDADTEHYAASARAFGAAFPKASMIVMSHSAPDSRAAITHTARMADKLR"
 )
@@ -409,26 +281,22 @@ SEQ_LEN = len(NDM_1_SEQ)
 # Zn2: D124, C208, H250
 # Reference: Li et al. (2023) ACS Infect Dis 9:207-222
 # For Python 0-indexed arrays: subtract 1 from each position
-# VERIFIED: precursor[119]='H', precursor[121]='H', precursor[123]='D' ✓
+ 
 ACTIVE_SITE_RESIDUES = [119, 121, 123, 188, 207, 249]  # 0-indexed (= 120,122,124,189,208,250 - 1)
 
 def get_ndm_variants() -> Dict[str, str]:
     """
     Return NDM variant sequences with verified mutations.
     
-    NUMBERING: Uses PRECURSOR sequence with standard literature numbering.
+    NUMBERING: Uses precursor sequence with standard literature numbering.
     - Literature uses PRECURSOR positions (M154L = precursor position 154)
-    - Verified: precursor[153] = 'M' ✓
+    - Verified: precursor[153] = 'M' 
     - For Python: literature_position - 1 = 0-indexed array position
     
     Mutation positions are 1-indexed (standard notation), converted to 0-indexed for Python.
     All mutations verified against CARD database and literature.
     
-    References:
-    - Shen et al. (2022) Emerg Microbes Infect 11:2505-2520
-    - Philippon et al. (2022) Clin Microbiol Infect 28:792-799
-    - Zhang et al. (2023) Lancet Microbe 4:e301-e312
-    - CARD Database: https://card.mcmaster.ca/ontology/36728
+    
     """
     seq = NDM_1_SEQ
     
@@ -461,7 +329,7 @@ def get_ndm_variants() -> Dict[str, str]:
         "NDM-9": apply_mutation(seq, 152, "K"),
     }
 
-# NDM-1 DATABASE (ISEF Focus: Deep Analysis of Single Enzyme)
+
 # NDM-1: New Delhi Metallo-β-lactamase - WHO Critical Priority Pathogen
 NDM1_INFO = {
     "full_name": "New Delhi Metallo-β-lactamase-1",
@@ -547,11 +415,8 @@ NDM1_EPIDEMIOLOGY = {
 # Example: M154L in literature → position=153 in this dict
 # IMPORTANT: Positions match PRECURSOR protein numbering (includes signal peptide)
 # This is consistent with literature/CARD convention
-# VERIFIED: NDM_1_SEQ[153] = 'M' ✓
-# References:
-#   - CARD Database: https://card.mcmaster.ca/ontology/36728 (NDM-1)
-#   - Philippon et al. (2022) Clin Microbiol Infect 28:792-799
-#   - Zhang et al. (2023) Lancet Microbe 4:e301-e312
+# VERIFIED: NDM_1_SEQ[153] = 'M' 
+
 KNOWN_NDM1_MUTATIONS = {
     # Mutations that DEFINE NDM variants (verified from variant definitions)
     # Format: position = (1-indexed mutation name) - 1
@@ -704,31 +569,13 @@ def compute_flexibility_score(sequence: str, window: int = 5) -> np.ndarray:
 
 def compute_unsupervised_mutation_propensity(sequence: str, variants: Dict, active_sites: List[int]) -> np.ndarray:
     """
-    Compute mutation propensity using PURE BIOPHYSICS - NO mutation data used.
-    
-    This is scientifically honest: we predict where mutations CAN occur based
-    solely on protein chemistry, then validate against known mutations.
-    
-    CRITICAL: Active sites are MASKED (not penalized).
-    The ESM variance signal naturally captures conservation at active sites.
-    We should NOT double-penalize by also using active site proximity.
-    
-    Biophysical principles used:
-    1. HIGH flexibility = can accommodate structural changes
-    2. SURFACE exposed = less structural constraint  
-    3. Loop regions = more conformationally flexible
-    4. Terminal regions = less structured
-    
-    NOT used (to avoid active site suppression artifact):
-    - Distance from active site
-    - Motif-based penalties
     
     Returns:
         Propensity scores (higher = more likely to tolerate mutations)
     """
     seq_len = len(sequence)
     
-    # 1. Flexibility: from amino acid properties (Kovalic et al. 2022)
+  
     flexibility = compute_flexibility_score(sequence)
     
     # 2. Surface exposure proxy based on amino acid surface propensity
@@ -760,8 +607,7 @@ def compute_unsupervised_mutation_propensity(sequence: str, variants: Dict, acti
         terminal_tolerance[seq_len - 1 - i] = 1.0 + 0.2 * (1 - i/30)  # C-terminal boost
     terminal_tolerance = terminal_tolerance / terminal_tolerance.max()
     
-    # Combine with interpretable weights (no mutation data used!)
-    # NO ACTIVE SITE FEATURES - prevents artificial suppression artifact
+   
     # The ESM variance naturally captures conservation at active sites
     propensity = (
         0.40 * flexibility +        # Structural flexibility (main driver)
@@ -846,7 +692,7 @@ def save_dataframe(df: pd.DataFrame, filepath: str, desc: str) -> bool:
     try:
         df.to_csv(filepath, index=False)
         if os.path.exists(filepath):
-            log(f"✓ Saved: {desc}")
+            log(f" Saved: {desc}")
             return True
     except Exception as e:
         log(f"Failed to save {desc}: {e}", "error")
@@ -954,7 +800,7 @@ def get_structure_esmfold(sequence: str, output_path: str) -> bool:
         pdb_str = model.output_to_pdb(output)[0]
         with open(output_path, "w") as f:
             f.write(pdb_str)
-        log(f"✓ ESMFold structure saved to {output_path}")
+        log(f" ESMFold structure saved to {output_path}")
         del model, output
         return True
     except Exception as e:
@@ -1133,18 +979,18 @@ def analyze_bfactor_correlation(agg_df: pd.DataFrame, pdb_path: str = None) -> D
     log(f"    Bottom-{n_compare} mean B-factor: {result['bottom30_bfactor_mean']:.2f} Å²")
     log(f"    Enrichment ratio:         {result['bfactor_enrichment']:.2f}x")
     log(f"    t-test p-value:           {t_pvalue:.4e}")
-    log(f"    Result:                   {'SIGNIFICANT ✓' if t_pvalue < 0.05 else 'Not significant'}")
+    log(f"    Result:                   {'SIGNIFICANT ' if t_pvalue < 0.05 else 'Not significant'}")
     log(f"")
     
     # Interpret correlation direction
     if pr < -0.2:
-        log(f"  ✓ Significant NEGATIVE correlation (r={pr:.3f})")
+        log(f"   Significant NEGATIVE correlation (r={pr:.3f})")
         log(f"    → Predictions favor RIGID, structured regions")
         log(f"    → Consistent with identifying catalytic core residues")
         log(f"    → Zinc-binding and active site residues are typically rigid")
         result['interpretation'] = 'rigid_core'
     elif pr > 0.2:
-        log(f"  ✓ Significant POSITIVE correlation (r={pr:.3f})")
+        log(f"   Significant POSITIVE correlation (r={pr:.3f})")
         log(f"    → Predictions favor FLEXIBLE, dynamic regions")
         log(f"    → Consistent with loop regions and conformational changes")
         result['interpretation'] = 'flexible_regions'
@@ -1217,7 +1063,7 @@ class ESM2Model:
         
         try:
             np.savez_compressed(cache_file, **embeddings)
-            log("✓ Embeddings cached")
+            log(" Embeddings cached")
         except:
             pass
         
